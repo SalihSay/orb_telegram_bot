@@ -251,8 +251,10 @@ class ORBAlgo:
                 cur_breakout.failed = True
                 session.state = ORBState.WAITING_FOR_BREAKOUTS
             
-            # Check for retest
-            if not cur_breakout.failed:
+            # Check for retest - only on candles AFTER the breakout candle
+            # Pine Script: bar_index > curBreakout.startIndex
+            current_index = len(candles) - 1
+            if not cur_breakout.failed and current_index > cur_breakout.start_index:
                 if cur_breakout.is_bullish and close > session.high and current_candle['low'] < session.high:
                     cur_breakout.retests += 1
                 elif not cur_breakout.is_bullish and close < session.low and current_candle['high'] > session.low:
