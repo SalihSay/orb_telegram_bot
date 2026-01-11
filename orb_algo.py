@@ -1,14 +1,14 @@
 """
 ORB Algo Strategy Implementation
-Ported from Pine Script to Python
+Ported from Pine Script to Python - Fixed Session Logic
 """
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
-from enum import Enum
+from datetime import datetime, timezone
 import config
 
 
-class ORBState(Enum):
+class ORBState:
     OPENING_RANGE = "Opening Range"
     WAITING_FOR_BREAKOUTS = "Waiting For Breakouts"
     IN_BREAKOUT = "In Breakout"
@@ -31,8 +31,9 @@ class ORBSession:
     start_time: int = 0
     start_index: int = 0
     end_index: Optional[int] = None
+    orb_complete: bool = False
     
-    state: ORBState = ORBState.OPENING_RANGE
+    state: str = ORBState.OPENING_RANGE
     breakouts: List[Breakout] = field(default_factory=list)
     
     # Entry
@@ -110,6 +111,49 @@ def diff_percent(val1: float, val2: float) -> float:
     return abs(val1 - val2) / val2 * 100.0
 
 
+def get_session_start_hour() -> int:
+    """Get the UTC hour when trading session starts (00:00 UTC for crypto)"""
+    return 0  # Crypto markets: new day starts at 00:00 UTC
+
+
+def is_same_session(timestamp1: int, timestamp2: int) -> bool:
+    """Check if two timestamps are in the same trading session (same UTC day)"""
+    dt1 = datetime.fromtimestamp(timestamp1 / 1000, tz=timezone.utc)
+    dt2 = datetime.fromtimestamp(timestamp2 / 1000, tz=timezone.utc)
+    return dt1.date() == dt2.date()
+
+
+def find_session_orb(candles_30m: List[Dict]) -> Tuple[Optional[float], Optional[float], Optional[int]]:
+    """
+    Find the ORB (Opening Range) for the current session.
+    ORB = High and Low of the first 30-minute candle of the day.
+    
+    Returns: (orb_high, orb_low, orb_start_timestamp) or (None, None, None)
+    """
+    if not candles_30m:
+        return None, None, None
+    
+    # Get the last candle's date to determine current session
+    last_candle = candles_30m[-1]
+    last_dt = datetime.fromtimestamp(last_candle['timestamp'] / 1000, tz=timezone.utc)
+    current_date = last_dt.date()
+    
+    # Find the first 30m candle of today (the session's opening range)
+    for candle in candles_30m:
+        candle_dt = datetime.fromtimestamp(candle['timestamp'] / 1000, tz=timezone.utc)
+        if candle_dt.date() == current_date:
+            # This is the first candle of today's session = ORB
+            return candle['high'], candle['low'], candle['timestamp']
+    
+    return None, None, None
+
+
+def is_orb_period_complete(orb_start_time: int, current_time: int, orb_duration_minutes: int = 30) -> bool:
+    """Check if ORB period is complete"""
+    orb_duration_ms = orb_duration_minutes * 60 * 1000
+    return current_time >= orb_start_time + orb_duration_ms
+
+
 class ORBAlgo:
     def __init__(self):
         self.ema_length = config.EMA_LENGTH
@@ -120,8 +164,9 @@ class ORBAlgo:
         self.adaptive_sl = config.ADAPTIVE_SL
         self.minimum_profit_percent = config.MINIMUM_PROFIT_PERCENT
         
-        # Current session
+        # Current session state
         self.current_session: Optional[ORBSession] = None
+        self.last_session_date: Optional[str] = None
     
     def analyze(self, candles: List[Dict], orb_candles: List[Dict]) -> Tuple[Optional[str], Optional[Dict]]:
         """
@@ -134,25 +179,46 @@ class ORBAlgo:
         Returns:
             Tuple of (signal_type, signal_data) or (None, None)
         """
-        if len(candles) < 50 or len(orb_candles) < 20:
+        if len(candles) < 50 or len(orb_candles) < 10:
             return None, None
+        
+        # Get current session's ORB
+        orb_high, orb_low, orb_start_time = find_session_orb(orb_candles)
+        
+        if orb_high is None or orb_low is None:
+            return None, None
+        
+        # Check if this is a new session
+        current_candle = candles[-1]
+        current_dt = datetime.fromtimestamp(current_candle['timestamp'] / 1000, tz=timezone.utc)
+        current_date_str = current_dt.date().isoformat()
+        
+        if self.last_session_date != current_date_str:
+            # New session - reset
+            self.current_session = ORBSession()
+            self.current_session.high = orb_high
+            self.current_session.low = orb_low
+            self.current_session.start_time = orb_start_time
+            self.last_session_date = current_date_str
+        
+        session = self.current_session
+        if session is None:
+            return None, None
+        
+        # Check if ORB period is complete (30 minutes after session start)
+        if not session.orb_complete:
+            if is_orb_period_complete(session.start_time, current_candle['timestamp']):
+                session.orb_complete = True
+                session.state = ORBState.WAITING_FOR_BREAKOUTS
+            else:
+                # Still in opening range period
+                return None, None
         
         # Calculate indicators
         hl2 = [(c['high'] + c['low']) / 2 for c in candles]
         ema = calculate_ema(hl2, self.ema_length)
         atr = calculate_atr(candles)
         
-        # Get ORB levels from 30m candles (first candle of session)
-        # For simplicity, use first 30m candle's high/low as ORB
-        if self.current_session is None:
-            self.current_session = ORBSession()
-            self.current_session.high = orb_candles[0]['high']
-            self.current_session.low = orb_candles[0]['low']
-            self.current_session.start_time = orb_candles[0]['timestamp']
-            self.current_session.state = ORBState.WAITING_FOR_BREAKOUTS
-        
-        session = self.current_session
-        current_candle = candles[-1]
         current_ema = ema[-1]
         current_atr = atr[-1] if atr else 0.01
         
@@ -257,6 +323,7 @@ class ORBAlgo:
     def reset_session(self):
         """Reset for new trading session"""
         self.current_session = None
+        self.last_session_date = None
 
 
 # Test
