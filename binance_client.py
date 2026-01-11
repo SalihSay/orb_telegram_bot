@@ -7,10 +7,17 @@ from typing import List, Dict, Optional
 
 
 class BinanceClient:
-    BASE_URL = "https://api.binance.com/api/v3"
+    # Use data API for global access (no geo-restrictions)
+    BASE_URLS = [
+        "https://data-api.binance.vision/api/v3",  # Global data API (primary)
+        "https://api.binance.com/api/v3",           # Main API (fallback)
+        "https://api1.binance.com/api/v3",          # Backup 1
+        "https://api2.binance.com/api/v3",          # Backup 2
+    ]
     
     def __init__(self):
         self.session = requests.Session()
+        self.current_base_url = self.BASE_URLS[0]
     
     def get_klines(self, symbol: str, interval: str, limit: int = 100) -> List[Dict]:
         """
@@ -24,7 +31,7 @@ class BinanceClient:
         Returns:
             List of candle dictionaries with open, high, low, close, volume
         """
-        endpoint = f"{self.BASE_URL}/klines"
+        endpoint = f"{self.current_base_url}/klines"
         params = {
             'symbol': symbol,
             'interval': interval,
@@ -57,7 +64,7 @@ class BinanceClient:
     
     def get_current_price(self, symbol: str) -> Optional[float]:
         """Get current price for a symbol"""
-        endpoint = f"{self.BASE_URL}/ticker/price"
+        endpoint = f"{self.current_base_url}/ticker/price"
         params = {'symbol': symbol}
         
         try:
@@ -71,7 +78,7 @@ class BinanceClient:
     
     def get_server_time(self) -> int:
         """Get Binance server time"""
-        endpoint = f"{self.BASE_URL}/time"
+        endpoint = f"{self.current_base_url}/time"
         try:
             response = self.session.get(endpoint, timeout=10)
             response.raise_for_status()
