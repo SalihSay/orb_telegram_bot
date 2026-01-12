@@ -196,11 +196,35 @@ class ORBAlgo:
                         }
             
             elif state == 'entry_taken':
-                # Entry already taken, stop scanning for new entries
-                break
+                # Check if TP1 or SL has been hit after entry
+                entry_price = entry_data['entry_price']
+                sl_price = entry_data['sl_price']
+                is_long = entry_data['direction'] == 'buy'
+                
+                # Check SL
+                if is_long and low <= sl_price:
+                    entry_data = None  # Position closed by SL
+                    state = 'closed'
+                elif not is_long and high >= sl_price:
+                    entry_data = None  # Position closed by SL
+                    state = 'closed'
+                
+                # Check TP1 (Dynamic - EMA crossback with profit)
+                if entry_data and state == 'entry_taken':
+                    ema_profit = ((ema - entry_price) / entry_price * 100) if is_long else ((entry_price - ema) / entry_price * 100)
+                    
+                    if ema_profit >= self.minimum_profit_percent:
+                        # Check for crossback
+                        if (is_long and close < ema) or (not is_long and close > ema):
+                            entry_data = None  # Position closed by TP1
+                            state = 'closed'
+            
+            elif state == 'closed':
+                # Position already closed, no signal to send
+                pass
         
-        # Return entry if one was found today
-        if entry_data:
+        # Return entry if one was found today AND position is still open
+        if entry_data and state == 'entry_taken':
             return 'entry', entry_data
         
         return None, None
