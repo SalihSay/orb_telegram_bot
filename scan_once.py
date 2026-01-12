@@ -128,43 +128,78 @@ class ORBScanner:
         """Check if an active signal has hit TP1 or SL"""
         signal_info = self.active_signals[symbol]
         
-        # Create a fresh algo and set it to ENTRY_TAKEN state to check for close
-        algo.current_session = None
-        signal_type, signal_data = algo.analyze(candles_15m, candles_30m)
+        if not candles_15m or len(candles_15m) < 20:
+            return None
         
-        # Get current price for manual TP/SL check
-        current_price = candles_15m[-1]['close']
+        # Get current candle data
+        current_candle = candles_15m[-1]
+        current_price = current_candle['close']
         entry_price = signal_info['entry_price']
         sl_price = signal_info['sl_price']
         is_long = signal_info['direction'] == 'buy'
         
+        # Calculate EMA for TP1 check (Pine Script uses EMA for Dynamic TP)
+        hl2 = [(c['high'] + c['low']) / 2 for c in candles_15m]
+        ema = self._calculate_ema(hl2, config.EMA_LENGTH)
+        current_ema = ema[-1] if ema else current_price
+        
         # Calculate profit percentage
         if is_long:
             profit_pct = ((current_price - entry_price) / entry_price) * 100
-            hit_sl = current_price <= sl_price
+            ema_profit_pct = ((current_ema - entry_price) / entry_price) * 100
         else:
             profit_pct = ((entry_price - current_price) / entry_price) * 100
-            hit_sl = current_price >= sl_price
+            ema_profit_pct = ((entry_price - current_ema) / entry_price) * 100
         
-        # Check for TP1 (using minimum profit threshold from config)
+        # TP1 Check (Dynamic method - same as Pine Script)
+        # Condition: EMA is in profit >= minimum AND close crosses back below/above EMA
         min_profit = config.MINIMUM_PROFIT_PERCENT
-        hit_tp = profit_pct >= min_profit
         
-        # Also check algo's close signal
-        if signal_type == 'close':
-            print(f"   [TP1] {symbol}: TP1 hit! +{profit_pct:.2f}%")
-            await self._send_close_notification(symbol, signal_info, current_price, profit_pct, 'TP1')
+        if is_long:
+            # Long: EMA > entry (profitable) AND close < EMA (crossback)
+            is_ema_profitable = current_ema > entry_price
+            is_crossback = current_price < current_ema
+            hit_sl = current_candle['low'] <= sl_price
+        else:
+            # Short: EMA < entry (profitable) AND close > EMA (crossback)
+            is_ema_profitable = current_ema < entry_price
+            is_crossback = current_price > current_ema
+            hit_sl = current_candle['high'] >= sl_price
+        
+        # Check TP1 - must have minimum profit AND crossback
+        if is_ema_profitable and abs(ema_profit_pct) >= min_profit and is_crossback:
+            print(f"   [TP1] {symbol}: TP1 hit! +{abs(ema_profit_pct):.2f}%")
+            await self._send_close_notification(symbol, signal_info, current_ema, abs(ema_profit_pct), 'TP1')
             del self.active_signals[symbol]
             return 'closed'
         
-        elif signal_type == 'stoploss' or hit_sl:
+        # Check Stop Loss
+        if hit_sl:
             loss_pct = abs(profit_pct)
             print(f"   [SL] {symbol}: Stop Loss hit! -{loss_pct:.2f}%")
-            await self._send_close_notification(symbol, signal_info, current_price, -loss_pct, 'SL')
+            await self._send_close_notification(symbol, signal_info, sl_price, -loss_pct, 'SL')
             del self.active_signals[symbol]
             return 'closed'
         
         return None
+    
+    def _calculate_ema(self, prices: list, period: int) -> list:
+        """Calculate EMA"""
+        if len(prices) < period:
+            return prices
+        
+        ema = []
+        multiplier = 2 / (period + 1)
+        sma = sum(prices[:period]) / period
+        ema.append(sma)
+        
+        for i in range(1, len(prices)):
+            if i < period:
+                ema.append(sum(prices[:i+1]) / (i+1))
+            else:
+                ema.append((prices[i] - ema[-1]) * multiplier + ema[-1])
+        
+        return ema
     
     async def _send_entry_notification(self, symbol: str, signal_data: Dict):
         """Send entry signal notification to Telegram"""
