@@ -199,8 +199,8 @@ class ORBAlgo:
                 # Entry already taken, stop scanning for new entries
                 break
         
-        # Only return entry if it was found on the LAST candle (current candle)
-        if entry_data and entry_data['entry_index'] == today_candles[-1][0]:
+        # Return entry if one was found today
+        if entry_data:
             return 'entry', entry_data
         
         return None, None
