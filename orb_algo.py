@@ -196,28 +196,43 @@ class ORBAlgo:
                         }
             
             elif state == 'entry_taken':
-                # Check if TP1 or SL has been hit after entry
+                # TRAILING STOP VERSION
                 entry_price = entry_data['entry_price']
-                sl_price = entry_data['sl_price']
+                current_sl = entry_data['sl_price']
                 is_long = entry_data['direction'] == 'buy'
+                current_atr = atr_values[-1] if atr_values else 0
                 
-                # Check SL
-                if is_long and low <= sl_price:
-                    entry_data = None  # Position closed by SL
-                    state = 'closed'
-                elif not is_long and high >= sl_price:
-                    entry_data = None  # Position closed by SL
-                    state = 'closed'
+                # Check if profitable
+                is_profitable = (is_long and ema > entry_price) or (not is_long and ema < entry_price)
+                ema_profit = abs(ema - entry_price) / entry_price * 100
                 
-                # Check TP1 (Dynamic - EMA crossback with profit)
-                if entry_data and state == 'entry_taken':
-                    ema_profit = ((ema - entry_price) / entry_price * 100) if is_long else ((entry_price - ema) / entry_price * 100)
-                    
-                    if ema_profit >= self.minimum_profit_percent:
-                        # Check for crossback
-                        if (is_long and close < ema) or (not is_long and close > ema):
-                            entry_data = None  # Position closed by TP1
-                            state = 'closed'
+                # Trailing stop logic - move SL up if in profit
+                if is_profitable and ema_profit >= self.minimum_profit_percent:
+                    if is_long:
+                        new_sl = ema - current_atr * 0.5
+                        if new_sl > current_sl:
+                            entry_data['sl_price'] = new_sl
+                            current_sl = new_sl
+                    else:
+                        new_sl = ema + current_atr * 0.5
+                        if new_sl < current_sl:
+                            entry_data['sl_price'] = new_sl
+                            current_sl = new_sl
+                
+                # Check SL hit
+                if is_long and low <= current_sl:
+                    # Check if exit is profitable
+                    if current_sl > entry_price:
+                        entry_data = None  # Position closed by trailing stop (profit)
+                    else:
+                        entry_data = None  # Position closed by SL (loss)
+                    state = 'closed'
+                elif not is_long and high >= current_sl:
+                    if current_sl < entry_price:
+                        entry_data = None  # Position closed by trailing stop (profit)
+                    else:
+                        entry_data = None  # Position closed by SL (loss)
+                    state = 'closed'
             
             elif state == 'closed':
                 # Position already closed, no signal to send
