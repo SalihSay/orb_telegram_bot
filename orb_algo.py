@@ -196,44 +196,32 @@ class ORBAlgo:
                         }
             
             elif state == 'entry_taken':
-                # TRAILING STOP VERSION
+                # EMA CROSSBACK VERSION
                 entry_price = entry_data['entry_price']
-                current_sl = entry_data['sl_price']
+                sl_price = entry_data['sl_price']
                 is_long = entry_data['direction'] == 'buy'
-                current_atr = atr_values[-1] if atr_values else 0
+                entry_idx = entry_data['entry_index']
                 
                 # Check if profitable
                 is_profitable = (is_long and ema > entry_price) or (not is_long and ema < entry_price)
                 ema_profit = abs(ema - entry_price) / entry_price * 100
                 
-                # Trailing stop logic - move SL to protect profit
-                # For LONG: SL trails UP (higher) as price rises
-                # For SHORT: SL trails DOWN (lower than entry) as price falls - but we skip this for now
-                # to match Pine Script behavior which uses simple SL check
-                if is_profitable and ema_profit >= self.minimum_profit_percent:
-                    if is_long:
-                        # Long: move SL up towards EMA
-                        new_sl = ema - current_atr * 0.5
-                        if new_sl > current_sl:
-                            entry_data['sl_price'] = new_sl
-                            current_sl = new_sl
-                    # For SHORT: Don't trail SL down - keep original SL
-                    # This matches Pine Script behavior better
+                # TP1: EMA crossback (at least 2 candles after entry, with minimum profit)
+                if idx > entry_idx + 1 and is_profitable and ema_profit >= self.minimum_profit_percent:
+                    # Check for crossback
+                    if (is_long and close < ema) or (not is_long and close > ema):
+                        # Position closed by TP1 (profit)
+                        entry_data = None
+                        state = 'closed'
                 
-                # Check SL hit
-                if is_long and low <= current_sl:
-                    # Check if exit is profitable
-                    if current_sl > entry_price:
-                        entry_data = None  # Position closed by trailing stop (profit)
-                    else:
-                        entry_data = None  # Position closed by SL (loss)
-                    state = 'closed'
-                elif not is_long and high >= current_sl:
-                    if current_sl < entry_price:
-                        entry_data = None  # Position closed by trailing stop (profit)
-                    else:
-                        entry_data = None  # Position closed by SL (loss)
-                    state = 'closed'
+                # SL check (if not already closed)
+                if entry_data and state == 'entry_taken':
+                    if is_long and low <= sl_price:
+                        entry_data = None  # Position closed by SL
+                        state = 'closed'
+                    elif not is_long and high >= sl_price:
+                        entry_data = None  # Position closed by SL
+                        state = 'closed'
             
             elif state == 'closed':
                 # Position already closed, no signal to send
