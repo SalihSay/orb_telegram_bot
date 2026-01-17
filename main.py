@@ -80,12 +80,12 @@ class ORBAlertSystem:
             except Exception as e:
                 print(f"[!] Scan error: {e}")
             
-            # Calculate seconds until next scan time (01, 16, 31, 46 minutes)
+            # Calculate seconds until next scan time (every 5 minutes: 01, 06, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56)
             now = datetime.now()
             current_minute = now.minute
             
-            # Find next scan minute
-            scan_minutes = [1, 16, 31, 46]
+            # Find next scan minute (every 5 minutes + 1 for candle close buffer)
+            scan_minutes = [1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56]
             next_scan_minute = None
             for m in scan_minutes:
                 if m > current_minute:
@@ -100,7 +100,7 @@ class ORBAlertSystem:
                 seconds_until_next = (next_scan_minute - current_minute) * 60 - now.second
             
             if seconds_until_next <= 0:
-                seconds_until_next = 15 * 60  # Wait full 15 minutes
+                seconds_until_next = 5 * 60  # Wait full 5 minutes
             
             next_scan = now + timedelta(seconds=seconds_until_next)
             print(f"[i] Next scan at {next_scan.strftime('%H:%M:%S')} (in {seconds_until_next//60}m {seconds_until_next%60}s)")
