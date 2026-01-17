@@ -5,10 +5,17 @@ TELEGRAM_BOT_TOKEN = "8396997139:AAEHrO7KVtWI1p-u24rzRiGhjv0VrXVVgVY"
 CHAT_ID = 735859243
 
 # Trading Pairs (Binance format)
+# Tier 1: Large cap
+# Tier 2: Solid projects
+# Tier 3: Volatile but potential
 TRADING_PAIRS = [
-    'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'ADAUSDT',
-    'TRXUSDT', 'AVAXUSDT', 'XRPUSDT', 'AAVEUSDT',
-    'TAOUSDT', 'ZENUSDT', 'ETCUSDT', 'EIGENUSDT'
+    # Tier 1 - Büyük Piyasa Değeri
+    'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
+    # Tier 2 - Sağlam Projeler
+    'ADAUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT', 'MATICUSDT',
+    'NEARUSDT', 'ATOMUSDT', 'UNIUSDT', 'AAVEUSDT', 'LTCUSDT',
+    # Tier 3 - Volatil ama Potansiyelli
+    'ARBUSDT', 'OPUSDT', 'INJUSDT', 'SUIUSDT',
 ]
 
 # ORB Algo Settings (matching Pine Script)
