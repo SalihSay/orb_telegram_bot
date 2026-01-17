@@ -2,8 +2,8 @@ name: ORB Trading Bot Scan
 
 on:
   schedule:
-    # Run at 00, 15, 30, 45 minutes of every hour
-    - cron: '1,16,31,46 * * * *'
+    # Run every 5 minutes for faster signal detection
+    - cron: '*/5 * * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
