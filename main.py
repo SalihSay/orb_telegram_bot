@@ -46,7 +46,7 @@ class ORBAlertSystem:
                 chat_id=config.CHAT_ID,
                 text=f"🤖 <b>ORB Alert Bot Başlatıldı!</b>\n\n"
                      f"📊 Takip edilen parite: {len(config.TRADING_PAIRS)}\n"
-                     f"⏰ Zaman dilimi: 15dk\n\n"
+                     f"⏰ Tarama aralığı: 5dk\n\n"
                      f"Sinyaller geldiğinde bildirim alacaksınız!",
                 parse_mode='HTML'
             )
