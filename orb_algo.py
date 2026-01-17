@@ -206,18 +206,19 @@ class ORBAlgo:
                 is_profitable = (is_long and ema > entry_price) or (not is_long and ema < entry_price)
                 ema_profit = abs(ema - entry_price) / entry_price * 100
                 
-                # Trailing stop logic - move SL up if in profit
+                # Trailing stop logic - move SL to protect profit
+                # For LONG: SL trails UP (higher) as price rises
+                # For SHORT: SL trails DOWN (lower than entry) as price falls - but we skip this for now
+                # to match Pine Script behavior which uses simple SL check
                 if is_profitable and ema_profit >= self.minimum_profit_percent:
                     if is_long:
+                        # Long: move SL up towards EMA
                         new_sl = ema - current_atr * 0.5
                         if new_sl > current_sl:
                             entry_data['sl_price'] = new_sl
                             current_sl = new_sl
-                    else:
-                        new_sl = ema + current_atr * 0.5
-                        if new_sl < current_sl:
-                            entry_data['sl_price'] = new_sl
-                            current_sl = new_sl
+                    # For SHORT: Don't trail SL down - keep original SL
+                    # This matches Pine Script behavior better
                 
                 # Check SL hit
                 if is_long and low <= current_sl:
