@@ -64,20 +64,20 @@ def get_utc_date(timestamp_ms: int) -> str:
     return datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc).date().isoformat()
 
 
-def find_todays_orb(candles_30m: List[Dict]) -> Tuple[Optional[float], Optional[float], Optional[int]]:
+def find_todays_orb(candles_orb: List[Dict]) -> Tuple[Optional[float], Optional[float], Optional[int]]:
     """
     Find today's ORB (Opening Range).
-    Returns the first 30m candle's high/low for today.
+    Returns the first ORB candle's high/low for today.
     """
-    if not candles_30m:
+    if not candles_orb:
         return None, None, None
     
     # Get today's date from the last candle
-    last_candle = candles_30m[-1]
+    last_candle = candles_orb[-1]
     today = get_utc_date(last_candle['timestamp'])
     
     # Find first candle of today
-    for candle in candles_30m:
+    for candle in candles_orb:
         if get_utc_date(candle['timestamp']) == today:
             return candle['high'], candle['low'], candle['timestamp']
     
@@ -95,27 +95,38 @@ class ORBAlgo:
         self.sl_method = config.SL_METHOD
         self.minimum_profit_percent = config.MINIMUM_PROFIT_PERCENT
     
-    def analyze(self, candles_15m: List[Dict], candles_30m: List[Dict]) -> Tuple[Optional[str], Optional[Dict]]:
+    def _parse_timeframe_to_ms(self, timeframe: str) -> int:
+        """Convert timeframe string (e.g., '15m', '1h') to milliseconds"""
+        if timeframe.endswith('m'):
+            return int(timeframe[:-1]) * 60 * 1000
+        elif timeframe.endswith('h'):
+            return int(timeframe[:-1]) * 60 * 60 * 1000
+        elif timeframe.endswith('d'):
+            return int(timeframe[:-1]) * 24 * 60 * 60 * 1000
+        return 0
+
+    def analyze(self, candles_signal: List[Dict], candles_orb: List[Dict]) -> Tuple[Optional[str], Optional[Dict]]:
         """
         Analyze all candles and find if there's a new entry signal.
         This is stateless - analyzes complete history each time.
         """
-        if len(candles_15m) < 50 or len(candles_30m) < 10:
+        if len(candles_signal) < 50 or len(candles_orb) < 10:
             return None, None
         
         # Get today's ORB
-        orb_high, orb_low, orb_start_time = find_todays_orb(candles_30m)
+        orb_high, orb_low, orb_start_time = find_todays_orb(candles_orb)
         if orb_high is None:
             return None, None
         
         # Get today's date
-        today = get_utc_date(candles_15m[-1]['timestamp'])
+        today = get_utc_date(candles_signal[-1]['timestamp'])
         
         # Filter candles to only today's candles AFTER ORB period
-        orb_end_time = orb_start_time + (30 * 60 * 1000)  # 30 minutes after ORB start
+        orb_duration_ms = self._parse_timeframe_to_ms(config.ORB_TIMEFRAME)
+        orb_end_time = orb_start_time + orb_duration_ms
         
         today_candles = []
-        for i, candle in enumerate(candles_15m):
+        for i, candle in enumerate(candles_signal):
             if get_utc_date(candle['timestamp']) == today and candle['timestamp'] >= orb_end_time:
                 today_candles.append((i, candle))
         
@@ -123,9 +134,9 @@ class ORBAlgo:
             return None, None
         
         # Calculate EMA for all candles
-        hl2 = [(c['high'] + c['low']) / 2 for c in candles_15m]
+        hl2 = [(c['high'] + c['low']) / 2 for c in candles_signal]
         ema_values = calculate_ema(hl2, self.ema_length)
-        atr_values = calculate_atr(candles_15m)
+        atr_values = calculate_atr(candles_signal)
         
         # Simulate the algo logic on today's candles
         state = 'waiting'  # waiting, in_breakout, entry_taken

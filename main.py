@@ -108,13 +108,13 @@ class ORBAlertSystem:
         """Scan a single pair for signals"""
         # Get candle data
         candles_15m = self.binance.get_klines(symbol, '15m', limit=100)
-        candles_30m = self.binance.get_klines(symbol, '30m', limit=50)
+        candles_orb = self.binance.get_klines(symbol, config.ORB_TIMEFRAME, limit=50)
         
-        if not candles_15m or not candles_30m:
+        if not candles_15m or not candles_orb:
             return
         
         algo = self.algos[symbol]
-        signal_type, signal_data = algo.analyze(candles_15m, candles_30m)
+        signal_type, signal_data = algo.analyze(candles_15m, candles_orb)
         
         if signal_type == 'entry':
             # Create unique signal key to avoid duplicates

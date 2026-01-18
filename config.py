@@ -19,7 +19,7 @@ TRADING_PAIRS = [
 ]
 
 # ORB Algo Settings (matching Pine Script)
-ORB_TIMEFRAME = '30m'       # ORB Timeframe (30 minutes) - Pine Script default
+ORB_TIMEFRAME = '1h'        # ORB Timeframe (1 hour)
 SIGNAL_TIMEFRAME = '15m'    # Trading timeframe (15 minutes)
 SENSITIVITY = 'Medium'      # High, Medium, Low, Lowest
 BREAKOUT_CONDITION = 'EMA'  # Close or EMA
