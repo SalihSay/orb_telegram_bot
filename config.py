@@ -12,10 +12,12 @@ TRADING_PAIRS = [
     # Tier 1 - Büyük Piyasa Değeri
     'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
     # Tier 2 - Sağlam Projeler
-    'ADAUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT', 'MATICUSDT',
+    'ADAUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT', 'TRXUSDT',
     'NEARUSDT', 'ATOMUSDT', 'UNIUSDT', 'AAVEUSDT', 'LTCUSDT',
+    'ETCUSDT', 'XLMUSDT', 'POLUSDT', 'TAOUSDT',
     # Tier 3 - Volatil ama Potansiyelli
-    'ARBUSDT', 'OPUSDT', 'INJUSDT', 'SUIUSDT',
+    'ARBUSDT', 'OPUSDT', 'INJUSDT', 'SUIUSDT', 'ZENUSDT',
+    'ENAUSDT', 'EIGENUSDT', 'ZECUSDT',
 ]
 
 # ORB Algo Settings (matching Pine Script)
