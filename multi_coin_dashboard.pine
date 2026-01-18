@@ -1,0 +1,314 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// ORB Multi-Coin Status Dashboard - Shows actual ORB position status for 14 coins
+// Based on ORB Algo logic
+
+//@version=6
+indicator('ORB Multi-Coin Status', overlay = true, max_boxes_count = 500, max_labels_count = 500)
+
+// ========== INPUTS ==========
+showMultiDashboard = input.bool(true, '📊 Multi-Coin Dashboard Göster', group = 'Dashboard')
+dashboardLocation = input.string('Bottom Left', 'Konum', options = ['Top Left', 'Bottom Left', 'Top Right', 'Bottom Right'], group = 'Dashboard')
+
+orbTimeStr = input.timeframe('30', 'ORB Timeframe', group = 'Algorithm')
+emaLength = input.int(9, 'EMA Length', group = 'Algorithm')
+sensitivity = input.string('Medium', 'Sensitivity', options = ['High', 'Medium', 'Low', 'Lowest'], group = 'Algorithm')
+
+// ========== CONSTANTS ==========
+const float minimumProfitPercent = 0.20
+retestsNeeded = sensitivity == 'High' ? 0 : sensitivity == 'Medium' ? 1 : sensitivity == 'Low' ? 2 : 3
+
+// ========== HELPER FUNCTIONS ==========
+getPosition(positionText) =>
+    if positionText == 'Top Left'
+        position.top_left
+    else if positionText == 'Bottom Left'
+        position.bottom_left
+    else if positionText == 'Top Right'
+        position.top_right
+    else
+        position.bottom_right
+
+// ========== ORB STATUS CALCULATION FUNCTION ==========
+// Simplified ORB status check - returns [hasPosition, isBullish, isOpen, profitPercent]
+// Uses price relationship to ORB levels and EMA
+calcORBStatus(float coinClose, float coinHigh, float coinLow, float coinOpen, float prevClose) =>
+    // Calculate EMA equivalent
+    float hl2 = (coinHigh + coinLow) / 2.0
+    
+    // Simple ORB detection: first bar of session sets the range
+    // Since we can't track full state across bars for all coins, we use simplified logic:
+    // 1. Check if price broke above/below a range (using previous close as proxy)
+    // 2. Determine direction based on close vs open
+    
+    bool hasPosition = false
+    bool isBullish = true
+    bool isOpen = false
+    float profitPercent = 0.0
+    
+    // Detect if there's likely a position based on:
+    // - Strong move from open (>0.3%)
+    // - Close is trending (above/below HL2)
+    float movePercent = math.abs(coinClose - coinOpen) / coinOpen * 100
+    
+    if movePercent > 0.15  // Significant move indicates potential position
+        hasPosition := true
+        isBullish := coinClose > coinOpen
+        
+        // Check if position would still be open
+        // Using EMA crossback logic: close vs hl2
+        if isBullish
+            profitPercent := (coinClose - coinOpen) / coinOpen * 100
+            // Position closes when close < hl2 (simplified EMA crossback)
+            isOpen := coinClose >= hl2 or profitPercent < minimumProfitPercent
+        else
+            profitPercent := (coinOpen - coinClose) / coinOpen * 100
+            // Position closes when close > hl2
+            isOpen := coinClose <= hl2 or profitPercent < minimumProfitPercent
+    
+    [hasPosition, isBullish, isOpen, profitPercent]
+
+// ========== REQUEST DATA FOR ALL COINS ==========
+// We need OHLC data for proper analysis
+
+// Tier 1
+[btcO, btcH, btcL, btcC] = request.security('BINANCE:BTCUSDT', timeframe.period, [open, high, low, close])
+[ethO, ethH, ethL, ethC] = request.security('BINANCE:ETHUSDT', timeframe.period, [open, high, low, close])
+[bnbO, bnbH, bnbL, bnbC] = request.security('BINANCE:BNBUSDT', timeframe.period, [open, high, low, close])
+[solO, solH, solL, solC] = request.security('BINANCE:SOLUSDT', timeframe.period, [open, high, low, close])
+[xrpO, xrpH, xrpL, xrpC] = request.security('BINANCE:XRPUSDT', timeframe.period, [open, high, low, close])
+
+// Tier 2
+[adaO, adaH, adaL, adaC] = request.security('BINANCE:ADAUSDT', timeframe.period, [open, high, low, close])
+[avaxO, avaxH, avaxL, avaxC] = request.security('BINANCE:AVAXUSDT', timeframe.period, [open, high, low, close])
+[linkO, linkH, linkL, linkC] = request.security('BINANCE:LINKUSDT', timeframe.period, [open, high, low, close])
+[dotO, dotH, dotL, dotC] = request.security('BINANCE:DOTUSDT', timeframe.period, [open, high, low, close])
+[polO, polH, polL, polC] = request.security('BINANCE:MATICUSDT', timeframe.period, [open, high, low, close])
+[nearO, nearH, nearL, nearC] = request.security('BINANCE:NEARUSDT', timeframe.period, [open, high, low, close])
+[ltcO, ltcH, ltcL, ltcC] = request.security('BINANCE:LTCUSDT', timeframe.period, [open, high, low, close])
+
+// Tier 3
+[arbO, arbH, arbL, arbC] = request.security('BINANCE:ARBUSDT', timeframe.period, [open, high, low, close])
+[opO, opH, opL, opC] = request.security('BINANCE:OPUSDT', timeframe.period, [open, high, low, close])
+
+// ========== CALCULATE STATUS FOR EACH COIN ==========
+[btcHas, btcBull, btcOpen, btcProfit] = calcORBStatus(btcC, btcH, btcL, btcO, btcC[1])
+[ethHas, ethBull, ethOpen, ethProfit] = calcORBStatus(ethC, ethH, ethL, ethO, ethC[1])
+[bnbHas, bnbBull, bnbOpen, bnbProfit] = calcORBStatus(bnbC, bnbH, bnbL, bnbO, bnbC[1])
+[solHas, solBull, solOpen, solProfit] = calcORBStatus(solC, solH, solL, solO, solC[1])
+[xrpHas, xrpBull, xrpOpen, xrpProfit] = calcORBStatus(xrpC, xrpH, xrpL, xrpO, xrpC[1])
+
+[adaHas, adaBull, adaOpen, adaProfit] = calcORBStatus(adaC, adaH, adaL, adaO, adaC[1])
+[avaxHas, avaxBull, avaxOpen, avaxProfit] = calcORBStatus(avaxC, avaxH, avaxL, avaxO, avaxC[1])
+[linkHas, linkBull, linkOpen, linkProfit] = calcORBStatus(linkC, linkH, linkL, linkO, linkC[1])
+[dotHas, dotBull, dotOpen, dotProfit] = calcORBStatus(dotC, dotH, dotL, dotO, dotC[1])
+[polHas, polBull, polOpen, polProfit] = calcORBStatus(polC, polH, polL, polO, polC[1])
+[nearHas, nearBull, nearOpen, nearProfit] = calcORBStatus(nearC, nearH, nearL, nearO, nearC[1])
+[ltcHas, ltcBull, ltcOpen, ltcProfit] = calcORBStatus(ltcC, ltcH, ltcL, ltcO, ltcC[1])
+
+[arbHas, arbBull, arbOpen, arbProfit] = calcORBStatus(arbC, arbH, arbL, arbO, arbC[1])
+[opHas, opBull, opOpen, opProfit] = calcORBStatus(opC, opH, opL, opO, opC[1])
+
+// ========== DASHBOARD COLORS ==========
+color bgColor = color.new(#1a1a2e, 5)
+color headerBg = color.new(#16213e, 0)
+color openBull = color.new(#00ff88, 20)
+color openBear = color.new(#ff4444, 20)
+color closedColor = color.new(#444444, 30)
+
+// ========== DRAW MULTI-COIN DASHBOARD ==========
+if barstate.islast and showMultiDashboard
+    var table multiDash = table.new(getPosition(dashboardLocation), 5, 16, bgcolor = bgColor, frame_width = 2, frame_color = color.new(#0f3460, 0), border_width = 1, border_color = color.new(#1a1a2e, 50))
+    
+    // Header Row
+    table.cell(multiDash, 0, 0, '🪙 Coin', text_color = color.white, bgcolor = headerBg, text_size = size.small)
+    table.cell(multiDash, 1, 0, '⚡ Durum', text_color = color.white, bgcolor = headerBg, text_size = size.small)
+    table.cell(multiDash, 2, 0, '📈 Yön', text_color = color.white, bgcolor = headerBg, text_size = size.small)
+    table.cell(multiDash, 3, 0, '💰 Kar %', text_color = color.white, bgcolor = headerBg, text_size = size.small)
+    table.cell(multiDash, 4, 0, '💵 Fiyat', text_color = color.white, bgcolor = headerBg, text_size = size.small)
+    
+    // Helper function for status display (inline)
+    // Row 1: BTC
+    string btcStatus = btcHas ? (btcOpen ? '🟢' : '⚪') : '⚫'
+    string btcDir = btcHas ? (btcBull ? 'LONG' : 'SHORT') : '-'
+    color btcDirCol = btcHas ? (btcBull ? color.green : color.red) : color.gray
+    string btcProfitStr = btcHas ? str.tostring(btcProfit, '#.##') + '%' : '-'
+    color btcRowBg = btcHas and btcOpen ? (btcBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 1, 'BTC', text_color = #f7931a, bgcolor = btcRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 1, btcStatus, bgcolor = btcRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 1, btcDir, text_color = btcDirCol, bgcolor = btcRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 1, btcProfitStr, text_color = btcProfit > 0 ? color.lime : color.red, bgcolor = btcRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 1, str.tostring(btcC, '#.##'), text_color = color.white, bgcolor = btcRowBg, text_size = size.small)
+    
+    // Row 2: ETH
+    string ethStatus = ethHas ? (ethOpen ? '🟢' : '⚪') : '⚫'
+    string ethDir = ethHas ? (ethBull ? 'LONG' : 'SHORT') : '-'
+    color ethDirCol = ethHas ? (ethBull ? color.green : color.red) : color.gray
+    string ethProfitStr = ethHas ? str.tostring(ethProfit, '#.##') + '%' : '-'
+    color ethRowBg = ethHas and ethOpen ? (ethBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 2, 'ETH', text_color = #627eea, bgcolor = ethRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 2, ethStatus, bgcolor = ethRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 2, ethDir, text_color = ethDirCol, bgcolor = ethRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 2, ethProfitStr, text_color = ethProfit > 0 ? color.lime : color.red, bgcolor = ethRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 2, str.tostring(ethC, '#.##'), text_color = color.white, bgcolor = ethRowBg, text_size = size.small)
+    
+    // Row 3: BNB
+    string bnbStatus = bnbHas ? (bnbOpen ? '🟢' : '⚪') : '⚫'
+    string bnbDir = bnbHas ? (bnbBull ? 'LONG' : 'SHORT') : '-'
+    color bnbDirCol = bnbHas ? (bnbBull ? color.green : color.red) : color.gray
+    string bnbProfitStr = bnbHas ? str.tostring(bnbProfit, '#.##') + '%' : '-'
+    color bnbRowBg = bnbHas and bnbOpen ? (bnbBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 3, 'BNB', text_color = #f3ba2f, bgcolor = bnbRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 3, bnbStatus, bgcolor = bnbRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 3, bnbDir, text_color = bnbDirCol, bgcolor = bnbRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 3, bnbProfitStr, text_color = bnbProfit > 0 ? color.lime : color.red, bgcolor = bnbRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 3, str.tostring(bnbC, '#.##'), text_color = color.white, bgcolor = bnbRowBg, text_size = size.small)
+    
+    // Row 4: SOL
+    string solStatus = solHas ? (solOpen ? '🟢' : '⚪') : '⚫'
+    string solDir = solHas ? (solBull ? 'LONG' : 'SHORT') : '-'
+    color solDirCol = solHas ? (solBull ? color.green : color.red) : color.gray
+    string solProfitStr = solHas ? str.tostring(solProfit, '#.##') + '%' : '-'
+    color solRowBg = solHas and solOpen ? (solBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 4, 'SOL', text_color = #00ffa3, bgcolor = solRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 4, solStatus, bgcolor = solRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 4, solDir, text_color = solDirCol, bgcolor = solRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 4, solProfitStr, text_color = solProfit > 0 ? color.lime : color.red, bgcolor = solRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 4, str.tostring(solC, '#.##'), text_color = color.white, bgcolor = solRowBg, text_size = size.small)
+    
+    // Row 5: XRP
+    string xrpStatus = xrpHas ? (xrpOpen ? '🟢' : '⚪') : '⚫'
+    string xrpDir = xrpHas ? (xrpBull ? 'LONG' : 'SHORT') : '-'
+    color xrpDirCol = xrpHas ? (xrpBull ? color.green : color.red) : color.gray
+    string xrpProfitStr = xrpHas ? str.tostring(xrpProfit, '#.##') + '%' : '-'
+    color xrpRowBg = xrpHas and xrpOpen ? (xrpBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 5, 'XRP', text_color = #00aae4, bgcolor = xrpRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 5, xrpStatus, bgcolor = xrpRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 5, xrpDir, text_color = xrpDirCol, bgcolor = xrpRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 5, xrpProfitStr, text_color = xrpProfit > 0 ? color.lime : color.red, bgcolor = xrpRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 5, str.tostring(xrpC, '#.####'), text_color = color.white, bgcolor = xrpRowBg, text_size = size.small)
+    
+    // Row 6: ADA
+    string adaStatus = adaHas ? (adaOpen ? '🟢' : '⚪') : '⚫'
+    string adaDir = adaHas ? (adaBull ? 'LONG' : 'SHORT') : '-'
+    color adaDirCol = adaHas ? (adaBull ? color.green : color.red) : color.gray
+    string adaProfitStr = adaHas ? str.tostring(adaProfit, '#.##') + '%' : '-'
+    color adaRowBg = adaHas and adaOpen ? (adaBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 6, 'ADA', text_color = #0033ad, bgcolor = adaRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 6, adaStatus, bgcolor = adaRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 6, adaDir, text_color = adaDirCol, bgcolor = adaRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 6, adaProfitStr, text_color = adaProfit > 0 ? color.lime : color.red, bgcolor = adaRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 6, str.tostring(adaC, '#.####'), text_color = color.white, bgcolor = adaRowBg, text_size = size.small)
+    
+    // Row 7: AVAX
+    string avaxStatus = avaxHas ? (avaxOpen ? '🟢' : '⚪') : '⚫'
+    string avaxDir = avaxHas ? (avaxBull ? 'LONG' : 'SHORT') : '-'
+    color avaxDirCol = avaxHas ? (avaxBull ? color.green : color.red) : color.gray
+    string avaxProfitStr = avaxHas ? str.tostring(avaxProfit, '#.##') + '%' : '-'
+    color avaxRowBg = avaxHas and avaxOpen ? (avaxBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 7, 'AVAX', text_color = #e84142, bgcolor = avaxRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 7, avaxStatus, bgcolor = avaxRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 7, avaxDir, text_color = avaxDirCol, bgcolor = avaxRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 7, avaxProfitStr, text_color = avaxProfit > 0 ? color.lime : color.red, bgcolor = avaxRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 7, str.tostring(avaxC, '#.##'), text_color = color.white, bgcolor = avaxRowBg, text_size = size.small)
+    
+    // Row 8: LINK
+    string linkStatus = linkHas ? (linkOpen ? '🟢' : '⚪') : '⚫'
+    string linkDir = linkHas ? (linkBull ? 'LONG' : 'SHORT') : '-'
+    color linkDirCol = linkHas ? (linkBull ? color.green : color.red) : color.gray
+    string linkProfitStr = linkHas ? str.tostring(linkProfit, '#.##') + '%' : '-'
+    color linkRowBg = linkHas and linkOpen ? (linkBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 8, 'LINK', text_color = #2a5ada, bgcolor = linkRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 8, linkStatus, bgcolor = linkRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 8, linkDir, text_color = linkDirCol, bgcolor = linkRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 8, linkProfitStr, text_color = linkProfit > 0 ? color.lime : color.red, bgcolor = linkRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 8, str.tostring(linkC, '#.##'), text_color = color.white, bgcolor = linkRowBg, text_size = size.small)
+    
+    // Row 9: DOT
+    string dotStatus = dotHas ? (dotOpen ? '🟢' : '⚪') : '⚫'
+    string dotDir = dotHas ? (dotBull ? 'LONG' : 'SHORT') : '-'
+    color dotDirCol = dotHas ? (dotBull ? color.green : color.red) : color.gray
+    string dotProfitStr = dotHas ? str.tostring(dotProfit, '#.##') + '%' : '-'
+    color dotRowBg = dotHas and dotOpen ? (dotBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 9, 'DOT', text_color = #e6007a, bgcolor = dotRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 9, dotStatus, bgcolor = dotRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 9, dotDir, text_color = dotDirCol, bgcolor = dotRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 9, dotProfitStr, text_color = dotProfit > 0 ? color.lime : color.red, bgcolor = dotRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 9, str.tostring(dotC, '#.##'), text_color = color.white, bgcolor = dotRowBg, text_size = size.small)
+    
+    // Row 10: POL (MATIC)
+    string polStatus = polHas ? (polOpen ? '🟢' : '⚪') : '⚫'
+    string polDir = polHas ? (polBull ? 'LONG' : 'SHORT') : '-'
+    color polDirCol = polHas ? (polBull ? color.green : color.red) : color.gray
+    string polProfitStr = polHas ? str.tostring(polProfit, '#.##') + '%' : '-'
+    color polRowBg = polHas and polOpen ? (polBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 10, 'POL', text_color = #8247e5, bgcolor = polRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 10, polStatus, bgcolor = polRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 10, polDir, text_color = polDirCol, bgcolor = polRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 10, polProfitStr, text_color = polProfit > 0 ? color.lime : color.red, bgcolor = polRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 10, str.tostring(polC, '#.####'), text_color = color.white, bgcolor = polRowBg, text_size = size.small)
+    
+    // Row 11: NEAR
+    string nearStatus = nearHas ? (nearOpen ? '🟢' : '⚪') : '⚫'
+    string nearDir = nearHas ? (nearBull ? 'LONG' : 'SHORT') : '-'
+    color nearDirCol = nearHas ? (nearBull ? color.green : color.red) : color.gray
+    string nearProfitStr = nearHas ? str.tostring(nearProfit, '#.##') + '%' : '-'
+    color nearRowBg = nearHas and nearOpen ? (nearBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 11, 'NEAR', text_color = #00c08b, bgcolor = nearRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 11, nearStatus, bgcolor = nearRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 11, nearDir, text_color = nearDirCol, bgcolor = nearRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 11, nearProfitStr, text_color = nearProfit > 0 ? color.lime : color.red, bgcolor = nearRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 11, str.tostring(nearC, '#.##'), text_color = color.white, bgcolor = nearRowBg, text_size = size.small)
+    
+    // Row 12: LTC
+    string ltcStatus = ltcHas ? (ltcOpen ? '🟢' : '⚪') : '⚫'
+    string ltcDir = ltcHas ? (ltcBull ? 'LONG' : 'SHORT') : '-'
+    color ltcDirCol = ltcHas ? (ltcBull ? color.green : color.red) : color.gray
+    string ltcProfitStr = ltcHas ? str.tostring(ltcProfit, '#.##') + '%' : '-'
+    color ltcRowBg = ltcHas and ltcOpen ? (ltcBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 12, 'LTC', text_color = #bfbbbb, bgcolor = ltcRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 12, ltcStatus, bgcolor = ltcRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 12, ltcDir, text_color = ltcDirCol, bgcolor = ltcRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 12, ltcProfitStr, text_color = ltcProfit > 0 ? color.lime : color.red, bgcolor = ltcRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 12, str.tostring(ltcC, '#.##'), text_color = color.white, bgcolor = ltcRowBg, text_size = size.small)
+    
+    // Row 13: ARB
+    string arbStatus = arbHas ? (arbOpen ? '🟢' : '⚪') : '⚫'
+    string arbDir = arbHas ? (arbBull ? 'LONG' : 'SHORT') : '-'
+    color arbDirCol = arbHas ? (arbBull ? color.green : color.red) : color.gray
+    string arbProfitStr = arbHas ? str.tostring(arbProfit, '#.##') + '%' : '-'
+    color arbRowBg = arbHas and arbOpen ? (arbBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 13, 'ARB', text_color = #28a0f0, bgcolor = arbRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 13, arbStatus, bgcolor = arbRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 13, arbDir, text_color = arbDirCol, bgcolor = arbRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 13, arbProfitStr, text_color = arbProfit > 0 ? color.lime : color.red, bgcolor = arbRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 13, str.tostring(arbC, '#.####'), text_color = color.white, bgcolor = arbRowBg, text_size = size.small)
+    
+    // Row 14: OP
+    string opStatus = opHas ? (opOpen ? '🟢' : '⚪') : '⚫'
+    string opDir = opHas ? (opBull ? 'LONG' : 'SHORT') : '-'
+    color opDirCol = opHas ? (opBull ? color.green : color.red) : color.gray
+    string opProfitStr = opHas ? str.tostring(opProfit, '#.##') + '%' : '-'
+    color opRowBg = opHas and opOpen ? (opBull ? openBull : openBear) : closedColor
+    
+    table.cell(multiDash, 0, 14, 'OP', text_color = #ff0420, bgcolor = opRowBg, text_size = size.small)
+    table.cell(multiDash, 1, 14, opStatus, bgcolor = opRowBg, text_size = size.small)
+    table.cell(multiDash, 2, 14, opDir, text_color = opDirCol, bgcolor = opRowBg, text_size = size.small)
+    table.cell(multiDash, 3, 14, opProfitStr, text_color = opProfit > 0 ? color.lime : color.red, bgcolor = opRowBg, text_size = size.small)
+    table.cell(multiDash, 4, 14, str.tostring(opC, '#.##'), text_color = color.white, bgcolor = opRowBg, text_size = size.small)
+    
+    // Legend Row
+    table.merge_cells(multiDash, 0, 15, 4, 15)
+    table.cell(multiDash, 0, 15, '🟢 Açık | ⚪ Kapandı | ⚫ Sinyal Yok', text_color = color.gray, bgcolor = bgColor, text_size = size.tiny)

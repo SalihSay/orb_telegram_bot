@@ -53,7 +53,7 @@ class TelegramAlertBot:
 {emoji} <b>{direction_tr} Sinyali!</b>
 
 📊 <b>Parite:</b> {symbol}
-⏰ <b>Timeframe:</b> 5dk
+⏰ <b>Timeframe:</b> 15dk
 💰 <b>Giriş:</b> {entry_price:.4f}
 🛑 <b>Stop Loss:</b> {sl_price:.4f}
 

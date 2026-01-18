@@ -46,7 +46,7 @@ class ORBAlertSystem:
                 chat_id=config.CHAT_ID,
                 text=f"🤖 <b>ORB Alert Bot Başlatıldı!</b>\n\n"
                      f"📊 Takip edilen parite: {len(config.TRADING_PAIRS)}\n"
-                     f"⏰ Tarama aralığı: 5dk\n\n"
+                     f"⏰ Tarama aralığı: 15dk\n\n"
                      f"Sinyaller geldiğinde bildirim alacaksınız!",
                 parse_mode='HTML'
             )
@@ -80,12 +80,12 @@ class ORBAlertSystem:
             except Exception as e:
                 print(f"[!] Scan error: {e}")
             
-            # Calculate seconds until next scan time (every 5 minutes: 01, 06, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56)
+            # Calculate seconds until next scan time (every 15 minutes: 01, 16, 31, 46)
             now = datetime.now()
             current_minute = now.minute
             
-            # Find next scan minute (every 5 minutes + 1 for candle close buffer)
-            scan_minutes = [1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56]
+            # Find next scan minute (every 15 minutes + 1 for candle close buffer)
+            scan_minutes = [1, 16, 31, 46]
             next_scan_minute = None
             for m in scan_minutes:
                 if m > current_minute:
