@@ -148,7 +148,8 @@ class ORBAlertSystem:
                 direction=signal_data['direction'],
                 entry_price=signal_data['entry_price'],
                 sl_price=signal_data['sl_price'],
-                signal_id=signal_id
+                signal_id=signal_id,
+                candle_time=signal_data.get('candle_time')
             )
     
     async def _check_active_positions(self):

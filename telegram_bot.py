@@ -44,19 +44,27 @@ class TelegramAlertBot:
             self._running = False
     
     async def send_entry_signal(self, symbol: str, direction: str, entry_price: float, 
-                                sl_price: float, signal_id: int = None):
+                                sl_price: float, signal_id: int = None, candle_time: int = None):
         """Send entry signal to user"""
-        from datetime import datetime
+        from datetime import datetime, timezone, timedelta
         emoji = "🟢" if direction == "buy" else "🔴"
         direction_tr = "LONG" if direction == "buy" else "SHORT"
-        current_time = datetime.now().strftime("%H:%M")
+        
+        # Convert candle timestamp to Turkey time (UTC+3)
+        if candle_time:
+            utc_time = datetime.fromtimestamp(candle_time / 1000, tz=timezone.utc)
+            turkey_tz = timezone(timedelta(hours=3))
+            turkey_time = utc_time.astimezone(turkey_tz)
+            candle_time_str = turkey_time.strftime("%H:%M")
+        else:
+            candle_time_str = datetime.now().strftime("%H:%M")
         
         message = f"""
 {emoji} <b>{direction_tr} Sinyali!</b>
 
 📊 <b>Parite:</b> {symbol}
 ⏰ <b>Timeframe:</b> 15dk
-🕐 <b>Mum Saati:</b> {current_time}
+🕐 <b>Mum Saati:</b> {candle_time_str}
 💰 <b>Giriş:</b> {entry_price:.4f}
 🛑 <b>Stop Loss:</b> {sl_price:.4f}
 

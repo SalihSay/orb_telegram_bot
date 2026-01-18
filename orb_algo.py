@@ -192,7 +192,8 @@ class ORBAlgo:
                             'sl_price': sl_price,
                             'orb_high': orb_high,
                             'orb_low': orb_low,
-                            'entry_index': idx
+                            'entry_index': idx,
+                            'candle_time': candle['timestamp']
                         }
             
             elif state == 'entry_taken':
