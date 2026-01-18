@@ -158,42 +158,38 @@ class ORBAlertSystem:
         
         for pos in positions:
             symbol = pos['symbol']
+            entry_price = pos['entry_price']
+            sl_price = pos['sl_price']
+            is_long = pos['direction'] == 'buy'
             
             try:
-                # Get current data
-                candles_15m = self.binance.get_klines(symbol, '15m', limit=100)
-                candles_30m = self.binance.get_klines(symbol, '30m', limit=50)
+                # Get current candle data
+                candles_15m = self.binance.get_klines(symbol, '15m', limit=20)
                 
                 if not candles_15m:
                     continue
                 
-                algo = self.algos[symbol]
-                signal_type, signal_data = algo.analyze(candles_15m, candles_30m)
+                current_candle = candles_15m[-1]
+                current_high = current_candle['high']
+                current_low = current_candle['low']
+                current_close = current_candle['close']
                 
-                if signal_type == 'close':
-                    print(f"   [TP1] {symbol}: TP1 triggered!")
-                    
-                    # Close position in tracker
-                    result = self.tracker.close_position(symbol, signal_data['close_price'], 'tp1')
-                    
-                    if result:
-                        # Send notification
-                        await self.bot.send_close_signal(
-                            symbol=symbol,
-                            direction=result['direction'],
-                            entry_price=result['entry_price'],
-                            close_price=result['close_price'],
-                            profit_percent=result['profit_percent']
-                        )
-                    
-                    # Reset algo for this symbol
-                    algo.reset_session()
+                # Calculate EMA for TP check
+                hl2 = [(c['high'] + c['low']) / 2 for c in candles_15m]
+                ema = sum(hl2[-13:]) / min(13, len(hl2))  # Simple approximation
                 
-                elif signal_type == 'stoploss':
+                # Check Stop Loss
+                sl_hit = False
+                if is_long and current_low <= sl_price:
+                    sl_hit = True
+                elif not is_long and current_high >= sl_price:
+                    sl_hit = True
+                
+                if sl_hit:
                     print(f"   [SL] {symbol}: Stop Loss triggered!")
                     
                     # Close position
-                    result = self.tracker.close_position(symbol, signal_data['sl_price'], 'sl')
+                    result = self.tracker.close_position(symbol, sl_price, 'sl')
                     
                     if result:
                         await self.bot.send_stoploss_signal(
@@ -202,8 +198,29 @@ class ORBAlertSystem:
                             sl_price=result['close_price'],
                             loss_percent=abs(result['profit_percent'])
                         )
+                    continue
+                
+                # Check TP (EMA crossback with profit)
+                is_profitable = (is_long and current_close > entry_price) or (not is_long and current_close < entry_price)
+                profit_pct = abs(current_close - entry_price) / entry_price * 100
+                
+                if is_profitable and profit_pct >= 0.2:  # Minimum 0.2% profit
+                    # Check for EMA crossback
+                    ema_crossback = (is_long and current_close < ema) or (not is_long and current_close > ema)
                     
-                    algo.reset_session()
+                    if ema_crossback:
+                        print(f"   [TP1] {symbol}: TP1 triggered!")
+                        
+                        result = self.tracker.close_position(symbol, current_close, 'tp1')
+                        
+                        if result:
+                            await self.bot.send_close_signal(
+                                symbol=symbol,
+                                direction=result['direction'],
+                                entry_price=result['entry_price'],
+                                close_price=result['close_price'],
+                                profit_percent=result['profit_percent']
+                            )
                     
             except Exception as e:
                 print(f"   [!] Error checking {symbol}: {e}")
