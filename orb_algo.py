@@ -145,15 +145,19 @@ class ORBAlgo:
             if state == 'waiting':
                 # Check for breakout
                 if condition_price > orb_high:
-                    state = 'in_breakout'
-                    breakout_bullish = True
-                    breakout_start_idx = idx
-                    retests = 0
+                    # Bullish breakout - but verify close is also above
+                    if close > orb_high:
+                        state = 'in_breakout'
+                        breakout_bullish = True
+                        breakout_start_idx = idx
+                        retests = 0
                 elif condition_price < orb_low:
-                    state = 'in_breakout'
-                    breakout_bullish = False
-                    breakout_start_idx = idx
-                    retests = 0
+                    # Bearish breakout - but verify close is also below
+                    if close < orb_low:
+                        state = 'in_breakout'
+                        breakout_bullish = False
+                        breakout_start_idx = idx
+                        retests = 0
             
             elif state == 'in_breakout':
                 # Check for failed breakout
