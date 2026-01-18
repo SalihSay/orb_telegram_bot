@@ -46,14 +46,17 @@ class TelegramAlertBot:
     async def send_entry_signal(self, symbol: str, direction: str, entry_price: float, 
                                 sl_price: float, signal_id: int = None):
         """Send entry signal to user"""
+        from datetime import datetime
         emoji = "🟢" if direction == "buy" else "🔴"
         direction_tr = "LONG" if direction == "buy" else "SHORT"
+        current_time = datetime.now().strftime("%H:%M")
         
         message = f"""
 {emoji} <b>{direction_tr} Sinyali!</b>
 
 📊 <b>Parite:</b> {symbol}
 ⏰ <b>Timeframe:</b> 15dk
+🕐 <b>Mum Saati:</b> {current_time}
 💰 <b>Giriş:</b> {entry_price:.4f}
 🛑 <b>Stop Loss:</b> {sl_price:.4f}
 
