@@ -28,6 +28,7 @@ class ORBAlertSystem:
         
         self._running = False
         self._scan_interval = 60  # Check every 60 seconds
+        self._sent_signals = set()  # Track sent signals to avoid duplicates (symbol_direction_date)
     
     async def start(self):
         """Start the alert system"""
@@ -37,23 +38,9 @@ class ORBAlertSystem:
         print(f"[i] Scan interval: {self._scan_interval}s")
         print("=" * 50)
         
-        # Start Telegram bot
+        # Start Telegram bot (no startup message to avoid spam)
         await self.bot.start()
-        
-        # Send startup message (may fail if user hasn't started bot in Telegram)
-        try:
-            await self.bot.app.bot.send_message(
-                chat_id=config.CHAT_ID,
-                text=f"🤖 <b>ORB Alert Bot Başlatıldı!</b>\n\n"
-                     f"📊 Takip edilen parite: {len(config.TRADING_PAIRS)}\n"
-                     f"⏰ Tarama aralığı: 15dk\n\n"
-                     f"Sinyaller geldiğinde bildirim alacaksınız!",
-                parse_mode='HTML'
-            )
-            print("[+] Startup message sent to Telegram!")
-        except Exception as e:
-            print(f"[!] Could not send startup message: {e}")
-            print("[i] Make sure you have started the bot in Telegram with /start command")
+        print("[+] Telegram bot started!")
         
         self._running = True
         
@@ -80,12 +67,12 @@ class ORBAlertSystem:
             except Exception as e:
                 print(f"[!] Scan error: {e}")
             
-            # Calculate seconds until next scan time (every 15 minutes: 01, 16, 31, 46)
+            # Calculate seconds until next scan time (every 5 minutes: 01, 06, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56)
             now = datetime.now()
             current_minute = now.minute
             
-            # Find next scan minute (every 15 minutes + 1 for candle close buffer)
-            scan_minutes = [1, 16, 31, 46]
+            # Find next scan minute (every 5 minutes + 1 for candle close buffer)
+            scan_minutes = [1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56]
             next_scan_minute = None
             for m in scan_minutes:
                 if m > current_minute:
@@ -130,7 +117,20 @@ class ORBAlertSystem:
         signal_type, signal_data = algo.analyze(candles_15m, candles_30m)
         
         if signal_type == 'entry':
+            # Create unique signal key to avoid duplicates
+            from datetime import datetime
+            today = datetime.now().strftime('%Y-%m-%d')
+            candle_time = signal_data.get('candle_time', 0)
+            signal_key = f"{symbol}_{signal_data['direction']}_{candle_time}"
+            
+            # Skip if this exact signal was already sent
+            if signal_key in self._sent_signals:
+                return
+            
             print(f"   [SIGNAL] {symbol}: {signal_data['direction'].upper()} signal!")
+            
+            # Mark signal as sent
+            self._sent_signals.add(signal_key)
             
             # Add to tracker
             signal_id = self.tracker.add_signal(
