@@ -17,6 +17,8 @@ TRADING_PAIRS = [
     'ZENUSDT', 'ENAUSDT', 'EIGENUSDT', 'ZECUSDT',
     # Tier 3 - Yeni Eklenenler
     'PEPEUSDT', 'DASHUSDT', 'LDOUSDT', 'JASMYUSDT', 'AXSUSDT', 'CHZUSDT', 'ICPUSDT',
+    'HBARUSDT', 'APTUSDT', 'ALGOUSDT', 'VETUSDT', 'PUMPUSDT', 'XTZUSDT', 'CRVUSDT',
+    'ZROUSDT', 'TIAUSDT',
 ]
 
 # ORB Algo Settings (matching Pine Script)
