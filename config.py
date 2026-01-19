@@ -9,15 +9,14 @@ CHAT_ID = -5196086558
 # Tier 2: Solid projects
 # Tier 3: Volatile but potential
 TRADING_PAIRS = [
-    # Tier 1 - Büyük Piyasa Değeri
-    'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
-    # Tier 2 - Sağlam Projeler
-    'ADAUSDT', 'AVAXUSDT', 'LINKUSDT', 'DOTUSDT', 'TRXUSDT',
-    'NEARUSDT', 'ATOMUSDT', 'UNIUSDT', 'AAVEUSDT', 'LTCUSDT',
-    'ETCUSDT', 'XLMUSDT', 'POLUSDT', 'TAOUSDT',
-    # Tier 3 - Volatil ama Potansiyelli
-    'ARBUSDT', 'OPUSDT', 'INJUSDT', 'SUIUSDT', 'ZENUSDT',
-    'ENAUSDT', 'EIGENUSDT', 'ZECUSDT',
+    # Tier 1 - Ana Coinler
+    'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT',
+    # Tier 2 - Altcoinler
+    'DOTUSDT', 'NEARUSDT', 'ATOMUSDT', 'UNIUSDT', 'AAVEUSDT', 'LTCUSDT',
+    'XLMUSDT', 'POLUSDT', 'TAOUSDT', 'OPUSDT', 'INJUSDT', 'SUIUSDT',
+    'ZENUSDT', 'ENAUSDT', 'EIGENUSDT', 'ZECUSDT',
+    # Tier 3 - Yeni Eklenenler
+    'PEPEUSDT', 'DASHUSDT', 'LDOUSDT', 'JASMYUSDT', 'AXSUSDT', 'CHZUSDT', 'ICPUSDT',
 ]
 
 # ORB Algo Settings (matching Pine Script)
