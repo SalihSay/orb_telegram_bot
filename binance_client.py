@@ -8,11 +8,10 @@ from typing import List, Dict, Optional
 
 class BinanceClient:
     # Use data API for global access (no geo-restrictions)
+    # Use Futures API (fapi) for global access
     BASE_URLS = [
-        "https://data-api.binance.vision/api/v3",  # Global data API (primary)
-        "https://api.binance.com/api/v3",           # Main API (fallback)
-        "https://api1.binance.com/api/v3",          # Backup 1
-        "https://api2.binance.com/api/v3",          # Backup 2
+        "https://fapi.binance.com/fapi/v1",       # Futures API (primary)
+        "https://fapi.binance.com/fapi/v1",       # Backup (same for futures typically)
     ]
     
     def __init__(self):
