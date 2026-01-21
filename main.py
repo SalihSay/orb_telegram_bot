@@ -107,9 +107,17 @@ class ORBAlertSystem:
     async def _scan_pair(self, symbol: str):
         """Scan a single pair for signals"""
         # Get candle data
-        candles_15m = self.binance.get_klines(symbol, '15m', limit=100)
-        candles_orb = self.binance.get_klines(symbol, config.ORB_TIMEFRAME, limit=50)
+        candles_15m = self.binance.get_klines(symbol, config.SIGNAL_TIMEFRAME, limit=100)
+        candidates_orb = self.binance.get_klines(symbol, config.ORB_TIMEFRAME, limit=50)
         
+        if not candles_15m or not candidates_orb:
+            return
+
+        # CANDLE CLOSE LOGIC: Filter to only keep closed candles
+        # This prevents "repainting" signals during forming candles
+        candles_15m = [c for c in candles_15m if c['is_closed']]
+        candles_orb = [c for c in candidates_orb if c['is_closed']]
+
         if not candles_15m or not candles_orb:
             return
         
@@ -119,7 +127,8 @@ class ORBAlertSystem:
         if signal_type == 'entry':
             # Create unique signal key to avoid duplicates
             from datetime import datetime
-            today = datetime.now().strftime('%Y-%m-%d')
+            
+            # Use candle time as unique identifier for this signal
             candle_time = signal_data.get('candle_time', 0)
             signal_key = f"{symbol}_{signal_data['direction']}_{candle_time}"
             
@@ -127,7 +136,7 @@ class ORBAlertSystem:
             if signal_key in self._sent_signals:
                 return
             
-            print(f"   [SIGNAL] {symbol}: {signal_data['direction'].upper()} signal!")
+            print(f"   [SIGNAL] {symbol}: {signal_data['direction'].upper()} signal (Closed Candle)!")
             
             # Mark signal as sent
             self._sent_signals.add(signal_key)
@@ -153,7 +162,7 @@ class ORBAlertSystem:
             )
     
     async def _check_active_positions(self):
-        """Check active positions for TP1 or SL"""
+        """Check active positions for TP1 or SL using Candle Close logic"""
         positions = self.tracker.get_confirmed_positions()
         
         for pos in positions:
@@ -163,33 +172,49 @@ class ORBAlertSystem:
             is_long = pos['direction'] == 'buy'
             
             try:
-                # Get current candle data
-                candles_15m = self.binance.get_klines(symbol, '15m', limit=20)
+                # Get current candle data - fetch 2 to ensure we get the last closed one
+                candles_15m = self.binance.get_klines(symbol, config.SIGNAL_TIMEFRAME, limit=5)
                 
-                if not candles_15m:
+                # Filter for closed candles
+                closed_candles = [c for c in candles_15m if c['is_closed']]
+                
+                if not closed_candles:
                     continue
                 
-                current_candle = candles_15m[-1]
+                # Use the LAST CLOSED candle for exit analysis
+                current_candle = closed_candles[-1]
                 current_high = current_candle['high']
                 current_low = current_candle['low']
                 current_close = current_candle['close']
                 
-                # Calculate EMA for TP check
-                hl2 = [(c['high'] + c['low']) / 2 for c in candles_15m]
-                ema = sum(hl2[-13:]) / min(13, len(hl2))  # Simple approximation
+                # Calculate EMA for TP check (using closed candles only)
+                hl2 = [(c['high'] + c['low']) / 2 for c in closed_candles]
+                ema_len = min(config.EMA_LENGTH, len(hl2))
                 
-                # Check Stop Loss
+                # Simple SMA/EMA calculation for check
+                # Note: This is an approximation. Ideally orb_algo should handle exits.
+                # But calculating EMA on closed candles is safe.
+                if len(hl2) >= ema_len:
+                    # Calculate EMA
+                    multiplier = 2 / (ema_len + 1)
+                    ema = sum(hl2[:ema_len]) / ema_len
+                    for price in hl2[ema_len:]:
+                         ema = (price - ema) * multiplier + ema
+                else:
+                    ema = sum(hl2) / len(hl2)
+                
+                # Check Stop Loss (Candle Close Logic)
                 sl_hit = False
-                if is_long and current_low <= sl_price:
+                if is_long and current_close <= sl_price:  # Check close, not low
                     sl_hit = True
-                elif not is_long and current_high >= sl_price:
+                elif not is_long and current_close >= sl_price: # Check close, not high
                     sl_hit = True
                 
                 if sl_hit:
-                    print(f"   [SL] {symbol}: Stop Loss triggered!")
+                    print(f"   [SL] {symbol}: Stop Loss triggered (Closed Candle)!")
                     
                     # Close position
-                    result = self.tracker.close_position(symbol, sl_price, 'sl')
+                    result = self.tracker.close_position(symbol, current_close, 'sl')
                     
                     if result:
                         await self.bot.send_stoploss_signal(
@@ -204,12 +229,12 @@ class ORBAlertSystem:
                 is_profitable = (is_long and current_close > entry_price) or (not is_long and current_close < entry_price)
                 profit_pct = abs(current_close - entry_price) / entry_price * 100
                 
-                if is_profitable and profit_pct >= 0.2:  # Minimum 0.2% profit
+                if is_profitable and profit_pct >= config.MINIMUM_PROFIT_PERCENT:
                     # Check for EMA crossback
                     ema_crossback = (is_long and current_close < ema) or (not is_long and current_close > ema)
                     
                     if ema_crossback:
-                        print(f"   [TP1] {symbol}: TP1 triggered!")
+                        print(f"   [TP1] {symbol}: TP1 triggered (Closed Candle)!")
                         
                         result = self.tracker.close_position(symbol, current_close, 'tp1')
                         
