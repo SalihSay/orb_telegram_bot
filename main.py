@@ -203,11 +203,11 @@ class ORBAlertSystem:
                 else:
                     ema = sum(hl2) / len(hl2)
                 
-                # Check Stop Loss (Candle Close Logic)
+                # Check Stop Loss (Wick Logic - matches TradingView)
                 sl_hit = False
-                if is_long and current_close <= sl_price:  # Check close, not low
+                if is_long and current_low < sl_price:  # Check low (wick), not close
                     sl_hit = True
-                elif not is_long and current_close >= sl_price: # Check close, not high
+                elif not is_long and current_high > sl_price: # Check high (wick), not close
                     sl_hit = True
                 
                 if sl_hit:
