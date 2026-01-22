@@ -172,8 +172,8 @@ class ORBAlertSystem:
             is_long = pos['direction'] == 'buy'
             
             try:
-                # Get current candle data - fetch 2 to ensure we get the last closed one
-                candles_15m = self.binance.get_klines(symbol, config.SIGNAL_TIMEFRAME, limit=5)
+                # Get current candle data - need enough candles for proper EMA calculation
+                candles_15m = self.binance.get_klines(symbol, config.SIGNAL_TIMEFRAME, limit=50)
                 
                 # Filter for closed candles
                 closed_candles = [c for c in candles_15m if c['is_closed']]
