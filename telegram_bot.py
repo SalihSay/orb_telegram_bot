@@ -24,6 +24,7 @@ class TelegramAlertBot:
         self.app.add_handler(CommandHandler("girdim", self.cmd_girdim))
         self.app.add_handler(CommandHandler("pozisyonlar", self.cmd_positions))
         self.app.add_handler(CommandHandler("istatistik", self.cmd_stats))
+        self.app.add_handler(CommandHandler("istatistikler", self.cmd_stats))
         self.app.add_handler(CommandHandler("yardim", self.cmd_help))
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
         
