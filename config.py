@@ -28,7 +28,7 @@ SENSITIVITY = 'Medium'      # High, Medium, Low, Lowest
 BREAKOUT_CONDITION = 'EMA'  # Close or EMA
 TP_METHOD = 'Dynamic'       # Dynamic or ATR
 EMA_LENGTH = 13
-SL_METHOD = 'Balanced'      # Safer, Balanced, Risky
+SL_METHOD = 'Safer'      # Safer, Balanced, Risky
 ADAPTIVE_SL = True
 
 # Derived settings
