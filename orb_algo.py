@@ -232,10 +232,10 @@ class ORBAlgo:
                 
                 # SL check (if not already closed)
                 if entry_data and state == 'entry_taken':
-                    if is_long and close <= sl_price:
+                    if is_long and low < sl_price:  # Pine uses < (strict)
                         entry_data = None  # Position closed by SL
                         state = 'closed'
-                    elif not is_long and close >= sl_price:
+                    elif not is_long and high > sl_price:  # Pine uses > (strict)
                         entry_data = None  # Position closed by SL
                         state = 'closed'
             

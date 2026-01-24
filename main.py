@@ -225,11 +225,12 @@ class ORBAlertSystem:
                         )
                     continue
                 
-                # Check TP (EMA crossback with profit)
-                is_profitable = (is_long and current_close > entry_price) or (not is_long and current_close < entry_price)
-                profit_pct = abs(current_close - entry_price) / entry_price * 100
+                # Check TP (EMA crossback with profit) - matches Pine Script exactly
+                # Pine: isProfitable = lastORB.entryBullish and ema > lastORB.entryPrice or not lastORB.entryBullish and ema < lastORB.entryPrice
+                is_profitable = (is_long and ema > entry_price) or (not is_long and ema < entry_price)
+                ema_profit_pct = abs(ema - entry_price) / entry_price * 100
                 
-                if is_profitable and profit_pct >= config.MINIMUM_PROFIT_PERCENT:
+                if is_profitable and ema_profit_pct >= config.MINIMUM_PROFIT_PERCENT:
                     # Check for EMA crossback
                     ema_crossback = (is_long and current_close < ema) or (not is_long and current_close > ema)
                     
